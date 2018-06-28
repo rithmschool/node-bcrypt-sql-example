@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const SECRET = "NEVER EVER MAKE THIS PUBLIC!";
 
 router.get("/", async (req, res, next) => {
   try {
@@ -44,9 +47,40 @@ router.post("/login", async (req, res, next) => {
     if (hashedPassword === false) {
       return res.json({ message: "Invalid Password" });
     }
-    return res.json({ message: "Logged In!" });
+
+    // let's create a token using the sign() method
+    const token = jwt.sign(
+      // the first parameter is an object which will become the payload of the token
+      { username: foundUser.rows[0].username },
+      // the second parameter is the secret key we are using to "sign" or encrypt the token
+      SECRET,
+      // the third parameter is an object where we can specify certain properties of the token
+      {
+        expiresIn: 60 * 60 // expire in one hour
+      }
+    );
+    // send back an object with the key of token and the value of the token variable defined above
+    return res.json({ token });
   } catch (e) {
     return res.json(e);
+  }
+});
+
+function ensureLoggedIn(req, res, next) {
+  try {
+    const authHeaderValue = req.headers.authorization;
+    const token = jwt.verify(authHeaderValue, SECRET);
+    return next();
+  } catch (e) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+}
+
+router.get("/secret", ensureLoggedIn, async function(req, res, next) {
+  try {
+    return res.json({ message: "You made it!" });
+  } catch (err) {
+    return res.json(err);
   }
 });
 
